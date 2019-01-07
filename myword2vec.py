@@ -9,6 +9,7 @@ import word2vec_utils
 
 tfe.enable_eager_execution()
 
+#首先定义好一些超参数。
 
 VOCAB_SIZE = 50000
 BATCH_SIZE = 128
@@ -31,19 +32,24 @@ EXPECTED_BYTES = 31344016
 
 class Word2Vec(object):
     def __init__(self, vocab_size, embed_size, num_sampled = NUM_SAMPLED):
+
         self.vocab_size = vocab_size
         self.num_sampled = num_sampled
-        self.embed_matrix = tfe.Variable(tf.random_uniform([vocab_size, embed_size]))
+
+        # 词向量矩阵，初始时为均匀随机正态分布
+        self.embed_matrix = tfe.Variable(tf.random_uniform([vocab_size, embed_size]))# 维数分别是总的词数 x 词向量的特征维度
+
         self.nce_weight = tfe.Variable(tf.truncated_normal([vocab_size, embed_size]), stddev = 1.0/(embed_size**0.5))
+        #
         self.nce_bias = tfe.Variable(tf.zeros([vocab_size]))
     def compute_loss(self, center_words, target_words):
         embed = tf.nn.embedding_lookup(self.embed_matrix, center_words)
-        loss = tf.reduce_mean(tf.nn.nce_loss(weights=self.nce_weight,
-                                             biases=self.nce_bias,
-                                             labels=target_words,
-                                             inputs=embed,
-                                             num_sampled=self.num_sampled,
-                                             num_classes=self.vocab_size))
+        loss = tf.reduce_mean(tf.nn.nce_loss(weights=self.nce_weight, # 权重
+                                             biases=self.nce_bias,  # 偏差
+                                             labels=target_words,# 输入的标签
+                                             inputs=embed,# 输入向量
+                                             num_sampled=self.num_sampled,#负采样的个数
+                                             num_classes=self.vocab_size))#类别数目
         return loss
 
 def gen():
@@ -51,9 +57,12 @@ def gen():
                                         VOCAB_SIZE, BATCH_SIZE, SKIP_WINDOW,
                                         VISUAL_FLD)
 def main():
-    dataset = tf.data.Dataset.from_generator(gen, (tf.in32, tf.int32),
-    (tf.TensorShape([BATCH_SIZE]), tf.TensorShape([BATCH_SIZE,1])))
-
+    #dataset = tf.data.Dataset.from_generator(gen, (tf.in32, tf.int32),
+    #                                        (tf.TensorShape([BATCH_SIZE]),
+    #                                        tf.TensorShape([BATCH_SIZE,1])))
+    dataset = tf.data.Dataset.from_generator(gen, (tf.int32, tf.int32),
+                                             (tf.TensorShape([BATCH_SIZE]),
+                                              tf.TensorShape([BATCH_SIZE, 1])))
     model = Word2Vec(vocab_size=VOCAB_SIZE, embed_size=EMBED_SIZE)
 
     optimizer = tf.train.GradientDescentOptimizer(LEARNING_RATE)
